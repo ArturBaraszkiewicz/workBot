@@ -21,6 +21,9 @@ pnpm-debug.log*
 .dev.vars
 .wrangler/
 
+# local AI agent tooling
+.agents/
+
 # macOS-specific files
 .DS_Store
 
