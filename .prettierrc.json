@@ -2,6 +2,7 @@
   "semi": true,
   "singleQuote": false,
   "tabWidth": 2,
+  "endOfLine": "auto",
   "printWidth": 120,
   "trailingComma": "all",
   "plugins": ["prettier-plugin-astro", "prettier-plugin-tailwindcss"],
