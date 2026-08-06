@@ -323,28 +323,28 @@ a dokumentacja kontraktu zapisuje jego mapowanie na roadmapowe F-01 / `preserved
 
 #### Automated
 
-- [x] 1.1 Zależności instalują się przez npm ci
-- [x] 1.2 Testy schematów odpowiedzi przechodzą
-- [x] 1.3 Lint aktywnego kodu i testów przechodzi
-- [x] 1.4 Produkcyjny build Cloudflare przechodzi
+- [x] 1.1 Zależności instalują się przez npm ci — 6c02936
+- [x] 1.2 Testy schematów odpowiedzi przechodzą — 6c02936
+- [x] 1.3 Lint aktywnego kodu i testów przechodzi — 6c02936
+- [x] 1.4 Produkcyjny build Cloudflare przechodzi — 6c02936
 
 #### Manual
 
-- [x] 1.5 Kolejność bramek CI jest poprawna
-- [x] 1.6 app.js pozostaje śledzoną, lecz wykluczoną referencją
+- [x] 1.5 Kolejność bramek CI jest poprawna — 6c02936
+- [x] 1.6 app.js pozostaje śledzoną, lecz wykluczoną referencją — 6c02936
 
 ### Phase 2: Wykonywalny kontrakt pełnego dnia pracy i /who
 
 #### Automated
 
-- [ ] 2.1 Definicja kontraktu, aliasy i fixtures przechodzą testy
-- [ ] 2.2 Typy harnessu i fixtures przechodzą tsc
-- [ ] 2.3 Cały aktywny kod i kontrakt przechodzą lint
-- [ ] 2.4 Produkcyjny build pozostaje zielony
+- [x] 2.1 Definicja kontraktu, aliasy i fixtures przechodzą testy — 1a16575
+- [x] 2.2 Typy harnessu i fixtures przechodzą tsc — 1a16575
+- [x] 2.3 Cały aktywny kod i kontrakt przechodzą lint — 1a16575
+- [x] 2.4 Produkcyjny build pozostaje zielony — 1a16575
 
 #### Manual
 
-- [ ] 2.5 Macierz zachowania i odstępstw została porównana z PRD i app.js
-- [ ] 2.6 Fixtures nie zawierają danych rzeczywistych
-- [ ] 2.7 Ograniczenie schema-only zostało zaakceptowane
-- [ ] 2.8 Adapter S-04/S-05 może użyć kontraktu bez zależności produktowych
+- [x] 2.5 Macierz zachowania i odstępstw została porównana z PRD i app.js — 1a16575
+- [x] 2.6 Fixtures nie zawierają danych rzeczywistych — 1a16575
+- [x] 2.7 Ograniczenie schema-only zostało zaakceptowane — 1a16575
+- [x] 2.8 Adapter S-04/S-05 może użyć kontraktu bez zależności produktowych — 1a16575
