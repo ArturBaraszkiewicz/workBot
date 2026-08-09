@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase";
 export const PROTECTED_ROUTES = [...PANEL_PAGE_PREFIXES, ...PANEL_API_PREFIXES] as const;
 
 const AUTH_ROUTE_PREFIXES = ["/auth", "/api/auth"] as const;
-const NO_STORE = "no-store";
+const NO_STORE = "private, no-store";
 
 function noStore(response: Response): Response {
   const headers = new Headers(response.headers);
@@ -43,5 +43,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const isProtected = PROTECTED_ROUTES.some((route) => matchesRouteSegment(context.url.pathname, route));
   const isAuthRoute = AUTH_ROUTE_PREFIXES.some((route) => matchesRouteSegment(context.url.pathname, route));
   const isForbiddenPage = classifyRoute(context.url.pathname) === "forbidden-page";
-  return isProtected || isAuthRoute || isForbiddenPage ? noStore(response) : response;
+  const variesBySession = panelAccess.kind !== "anonymous" || response.headers.has("Set-Cookie");
+  return isProtected || isAuthRoute || isForbiddenPage || variesBySession ? noStore(response) : response;
 });
