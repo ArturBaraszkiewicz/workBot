@@ -1,175 +1,131 @@
-# 10x Astro Starter
+# workBot
 
-![](./public/template.png)
+Wewnętrzna aplikacja firmy łącząca panel administracyjny z API bota czasu pracy. Panel działa jako Astro 6 SSR na
+Cloudflare Workers, używa React 19, Tailwind CSS 4 oraz hostowanego Supabase dla Google SSO, PostgreSQL i Row Level
+Security.
 
-A modern, opinionated starter template for building fast, accessible web applications.
+## Wymagania
 
-## Tech Stack
+- Node.js 22.14.0 (`.nvmrc`) i npm,
+- projekt Supabase oraz aplikacja OAuth typu **Internal** w Google Workspace,
+- konto panelowe w `panel_accounts`; samo zalogowanie Google nie nadaje dostępu,
+- opcjonalnie Docker tylko do lokalnego `supabase start` i `npm run test:db`.
 
-- [Astro](https://astro.build/) v6 - Modern web framework with server-first rendering
-- [React](https://react.dev/) v19 - UI library for interactive components
-- [TypeScript](https://www.typescriptlang.org/) v5 - Type-safe JavaScript
-- [Tailwind CSS](https://tailwindcss.com/) v4 - Utility-first CSS framework
-- [Supabase](https://supabase.com/) - Authentication and backend-as-a-service
-- [Cloudflare Workers](https://workers.cloudflare.com/) - Edge deployment runtime
+## Instalacja i konfiguracja
 
-## Prerequisites
-
-- Node.js v22.14.0 (as specified in `.nvmrc`)
-- npm (comes with Node.js)
-
-## Getting Started
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/przeprogramowani/10x-astro-starter.git
-cd 10x-astro-starter
+```powershell
+npm ci
+Copy-Item .env.example .env
+Copy-Item .env.example .env.production
+Copy-Item .env.example .dev.vars
 ```
 
-2. Install dependencies:
+Po skopiowaniu usuń z `.env`, `.env.production` i `.dev.vars` wpisy `SUPABASE_AUTH_EXTERNAL_GOOGLE_*`. W tych plikach
+ustaw wyłącznie wartości używane przez aplikację:
 
-```bash
-npm install
+```dotenv
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_KEY=sb_publishable_xxxxxxxxxxxxx
 ```
 
-3. Set up Supabase and configure environment variables — see [Supabase Configuration](#supabase-configuration) below.
+`SUPABASE_KEY` musi być kluczem publishable/anon. Nie dodawaj `service_role` ani secret key do Workera — omijają RLS.
+Zmienne providera Google są przeznaczone dla Supabase CLI, nie dla Astro ani Cloudflare:
 
-4. Create a `.dev.vars` file for local Cloudflare dev secrets:
-
-```bash
-cp .env.example .dev.vars
+```dotenv
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com
+SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=<client-secret>
 ```
 
-5. Run the development server:
+Przechowuj je w ignorowanym pliku `supabase/.env` lub w zmiennych bieżącej sesji. Nigdy nie commituj sekretu Google.
 
-```bash
+## Uruchomienie
+
+```powershell
 npm run dev
 ```
 
-## Available Scripts
+`astro dev` odczytuje aplikacyjne sekrety z ignorowanego pliku `.env`. Po zmianie `SUPABASE_URL` lub `SUPABASE_KEY`
+całkowicie zrestartuj serwer deweloperski; `.env.production` nie jest automatycznie ładowany w trybie development.
 
-- `npm run dev` - Start development server (Cloudflare workerd runtime)
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint with type-checked rules
-- `npm run lint:fix` - Auto-fix ESLint issues
-- `npm run format` - Run Prettier
+Domyślny lokalny callback aplikacji to `http://127.0.0.1:4321/api/auth/callback`. Google przekierowuje najpierw do
+Supabase (`https://<project-ref>.supabase.co/auth/v1/callback`), a Supabase kończy PKCE w callbacku aplikacji.
 
-## Project Structure
+Nie ma publicznego signup ani logowania email/hasło. Pierwszy login Google może utworzyć rekord `auth.users`, ale bez
+aktywnego `panel_accounts` użytkownik zobaczy 403 i będzie mógł się wylogować.
 
-```md
-.
-├── src/
-│ ├── layouts/ # Astro layouts
-│ ├── pages/ # Astro pages
-│ │ └── api/ # API endpoints
-│ ├── components/ # UI components (Astro & React)
-│ └── assets/ # Static assets
-├── public/ # Public assets
-├── wrangler.jsonc # Cloudflare Workers config
+## Baza danych i migracje
+
+Połącz CLI z projektem stagingowym i zawsze obejrzyj dry-run przed migracją:
+
+```powershell
+npx supabase login
+npx supabase link --project-ref <project-ref>
+npx supabase db push --dry-run
+npx supabase db push
 ```
 
-## Supabase Configuration
+Lokalny reset wymaga Dockera:
 
-This project uses [Supabase](https://supabase.com/) for authentication. Environment variables are declared via Astro's `astro:env` schema and are treated as **server-only secrets** — they are never exposed to the client.
-
-### First-time setup (local, no cloud project needed)
-
-Requires [Docker](https://www.docker.com/) and ~7 GB RAM.
-
-1. Create your `.env` file:
-
-```bash
-cp .env.example .env
-```
-
-2. Initialize the local Supabase project (creates a `supabase/` config folder):
-
-```bash
-npx supabase init
-```
-
-3. Start the local stack (downloads Docker images on first run):
-
-```bash
+```powershell
 npx supabase start
+npx supabase db reset
+npm run test:db
 ```
 
-4. Copy the credentials printed by the CLI into your `.env` and `.dev.vars`:
+Jeżeli pracujesz wyłącznie na połączonym stagingu, test pgTAP można wykonać bez Dockera przez Management API:
 
-```
-SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_KEY=<anon key from CLI output>
-```
-
-5. To stop the stack when done:
-
-```bash
-npx supabase stop
+```powershell
+npm run test:db:linked
 ```
 
-The local Studio UI is available at `http://localhost:54323`.
+Test używa wyłącznie syntetycznych użytkowników, działa w transakcji i kończy się `ROLLBACK`.
 
-No database tables or migrations are required — this project uses Supabase Auth's built-in `auth.users` table only.
+## Pierwszy administrator
 
-### Using a cloud Supabase project instead
+1. Zaloguj się firmowym kontem Google; pierwsza próba poprawnie kończy się 403.
+2. W Supabase odczytaj `auth.users.id` tej osoby.
+3. W SQL Editor wykonaj, zastępując UUID:
 
-If you prefer to use a hosted Supabase project, add these variables to your `.env` and `.dev.vars` files:
-
-| Variable       | Description                                                |
-| -------------- | ---------------------------------------------------------- |
-| `SUPABASE_URL` | Project URL from Supabase dashboard → Settings → API       |
-| `SUPABASE_KEY` | `anon` public key from Supabase dashboard → Settings → API |
-
-```
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_KEY=<anon-key>
+```sql
+insert into public.panel_accounts (user_id, role, active)
+values ('00000000-0000-0000-0000-000000000000', 'hr_admin', true);
 ```
 
-### Email confirmation in local development
+4. Odśwież `/dashboard`. Grant jest odczytywany przy każdym chronionym żądaniu, więc nie trzeba ponownie wydawać JWT.
 
-By default Supabase requires email confirmation before a user can sign in. To skip this during local development:
+Nie usuwaj grantów przez API. Dostęp odbiera się przez `active = false`. Utrata ostatniego aktywnego `hr_admin` wymaga
+ręcznej naprawy w Supabase SQL Editor/Dashboard.
 
-1. Open the Supabase dashboard for your project
-2. Go to **Authentication → Email → Confirm email**
-3. Toggle it **off**
+## Skrypty
 
-Users can then sign in immediately after sign-up without clicking a confirmation link.
+- `npm run dev` — lokalny serwer Astro/Cloudflare,
+- `npm test` — testy Vitest,
+- `npm run test:db` — lokalne pgTAP (wymaga uruchomionego Supabase/Dockera),
+- `npm run test:db:linked` — transakcyjne pgTAP na połączonym projekcie stagingowym bez Dockera,
+- `npm run lint` — type-aware ESLint,
+- `npm run build` — produkcyjny build Cloudflare,
+- `npm run format` — Prettier.
 
-### Auth routes
+## Trasy uwierzytelniania
 
-| Route                 | Description                                                             |
-| --------------------- | ----------------------------------------------------------------------- |
-| `/auth/signin`        | Email/password sign-in form                                             |
-| `/auth/signup`        | Email/password sign-up form                                             |
-| `/auth/confirm-email` | Post-signup "check your inbox" page                                     |
-| `/dashboard`          | Example protected page (redirects to `/auth/signin` if unauthenticated) |
+| Trasa                | Zachowanie                                                 |
+| -------------------- | ---------------------------------------------------------- |
+| `/auth/signin`       | Jedyna akcja logowania: firmowe Google SSO                 |
+| `/api/auth/callback` | Wymiana jednorazowego kodu PKCE na sesję                   |
+| `/forbidden`         | 403 dla uwierzytelnionego użytkownika bez aktywnego grantu |
+| `/dashboard`         | Panel dostępny wyłącznie dla aktywnego `hr_admin` lub `pm` |
+| `/api/panel/**`      | JSON 401/403/503 zależnie od stanu dostępu                 |
 
-Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_ROUTES` array there to require authentication.
+Każda przyszła tabela domenowa musi mieć własne polityki RLS. Middleware i ukrywanie elementów UI nie zastępują ochrony
+danych w PostgreSQL.
 
-## Deployment
+## Weryfikacja przed PR
 
-This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/).
-
-1. Build the project:
-
-```bash
+```powershell
+npm test
+npm run lint
 npm run build
 ```
 
-2. Deploy with Wrangler:
-
-```bash
-npx wrangler deploy
-```
-
-Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or via `npx wrangler secret put`.
-
-## CI
-
-GitHub Actions runs lint + build on every push and PR to `master`. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets in GitHub for the build step.
-
-## License
-
-MIT
+CI dodatkowo uruchamia czysty lokalny Supabase, migracje i `npm run test:db`. Szczegółowy runbook produkcyjny znajduje
+się w [docs/deployment-cloudflare-supabase.md](docs/deployment-cloudflare-supabase.md).

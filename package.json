@@ -8,6 +8,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "test": "vitest run",
+    "test:db": "supabase test db",
+    "test:db:linked": "supabase db query --linked --file supabase/tests/database/panel_access_contract.test.sql --output table",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write ."

@@ -9,6 +9,9 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-google-client-id.apps.googleusercontent.com
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET: ci-google-client-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,9 +20,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx astro sync
+      - run: npx supabase start
+      - name: Export local Supabase application variables
+        shell: bash
+        run: |
+          eval "$(npx supabase status -o env)"
+          echo "SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "SUPABASE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+      - run: npx supabase db reset
       - run: npm test
+      - run: npm run test:db
       - run: npm run lint
       - run: npm run build
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup
