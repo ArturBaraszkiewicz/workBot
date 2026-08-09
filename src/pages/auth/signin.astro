@@ -1,22 +1,71 @@
 ---
 import Layout from "@/layouts/Layout.astro";
-import SignInForm from "@/components/auth/SignInForm";
 
-const error = Astro.url.searchParams.get("error");
+const ERROR_MESSAGES = {
+  oauth_unavailable: "Logowanie jest chwilowo niedostępne. Spróbuj ponownie później.",
+  oauth_failed: "Nie udało się rozpocząć logowania Google. Spróbuj ponownie.",
+  missing_code: "Brakuje kodu logowania Google. Rozpocznij logowanie ponownie.",
+  callback_failed: "Nie udało się zakończyć logowania Google. Rozpocznij logowanie ponownie.",
+  signout_failed: "Nie udało się prawidłowo zakończyć sesji. Spróbuj wylogować się ponownie.",
+} as const;
+
+const { panelAccess } = Astro.locals;
+
+if (panelAccess.kind === "granted") {
+  return Astro.redirect("/dashboard");
+}
+
+if (panelAccess.kind === "denied") {
+  return Astro.redirect("/forbidden");
+}
+
+if (panelAccess.kind === "unavailable") {
+  Astro.response.status = 503;
+}
+
+const errorCode = Astro.url.searchParams.get("error");
+const errorMessage =
+  errorCode && Object.hasOwn(ERROR_MESSAGES, errorCode)
+    ? ERROR_MESSAGES[errorCode as keyof typeof ERROR_MESSAGES]
+    : panelAccess.kind === "unavailable"
+      ? ERROR_MESSAGES.oauth_unavailable
+      : null;
 ---
 
-<Layout title="Sign in">
-  <div class="bg-cosmic flex min-h-screen items-center justify-center p-4">
-    <div class="w-full max-w-sm rounded-2xl border border-white/10 bg-white/10 p-8 text-white backdrop-blur-xl">
+<Layout title="Logowanie do workBot">
+  <main class="bg-cosmic flex min-h-screen items-center justify-center p-4">
+    <section class="w-full max-w-md rounded-2xl border border-white/10 bg-white/10 p-8 text-white backdrop-blur-xl">
+      <p class="mb-2 text-center text-sm font-medium tracking-wide text-purple-200 uppercase">Panel wewnętrzny</p>
       <h1
-        class="mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-center text-2xl font-bold text-transparent"
+        class="mb-3 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-center text-3xl font-bold text-transparent"
       >
-        Sign in
+        Zaloguj się do workBot
       </h1>
-      <SignInForm serverError={error} client:load />
-      <p class="mt-4 text-center text-sm text-blue-100/60">
-        Don't have an account? <a href="/auth/signup" class="text-purple-300 hover:underline">Sign up</a>
+      <p class="mb-7 text-center text-sm leading-6 text-blue-100/70">
+        Użyj firmowego konta Google. Samo uwierzytelnienie nie nadaje dostępu — konto panelowe musi zostać wcześniej
+        aktywowane przez administratora.
       </p>
-    </div>
-  </div>
+
+      {
+        errorMessage && (
+          <p role="alert" class="mb-5 rounded-lg border border-red-400/30 bg-red-950/40 px-4 py-3 text-sm text-red-100">
+            {errorMessage}
+          </p>
+        )
+      }
+
+      <form method="POST" action="/api/auth/signin">
+        <button
+          type="submit"
+          class="w-full rounded-lg bg-white px-5 py-3 font-semibold text-slate-900 transition-colors hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 focus-visible:outline-none"
+        >
+          Zaloguj przez Google
+        </button>
+      </form>
+
+      <a href="/" class="mt-6 block text-center text-sm text-purple-200 hover:text-white hover:underline">
+        Wróć na stronę główną
+      </a>
+    </section>
+  </main>
 </Layout>

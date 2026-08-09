@@ -1,25 +1,47 @@
 import { defineMiddleware } from "astro:middleware";
+import { PANEL_API_PREFIXES, PANEL_PAGE_PREFIXES, classifyRoute, matchesRouteSegment } from "@/lib/auth/route-access";
+import { resolvePanelAccessForRequest, type PanelAccess } from "@/lib/auth/panel-principal";
+import { routeAccessResponse } from "@/lib/auth/request-guard";
 import { createClient } from "@/lib/supabase";
 
-const PROTECTED_ROUTES = ["/dashboard"];
+export const PROTECTED_ROUTES = [...PANEL_PAGE_PREFIXES, ...PANEL_API_PREFIXES] as const;
+
+const AUTH_ROUTE_PREFIXES = ["/auth", "/api/auth"] as const;
+const NO_STORE = "no-store";
+
+function noStore(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Cache-Control", NO_STORE);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const supabase = createClient(context.request.headers, context.cookies);
+  let panelAccess: PanelAccess = { kind: "anonymous" };
 
-  if (supabase) {
+  if (!supabase) {
+    context.locals.user = null;
+  } else {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     context.locals.user = user ?? null;
-  } else {
-    context.locals.user = null;
+    panelAccess = await resolvePanelAccessForRequest(context.locals.user, supabase);
+  }
+  context.locals.panelAccess = panelAccess;
+
+  const guardedResponse = routeAccessResponse(context.url.pathname, panelAccess, context.url.origin);
+  if (guardedResponse) {
+    return guardedResponse;
   }
 
-  if (PROTECTED_ROUTES.some((route) => context.url.pathname.startsWith(route))) {
-    if (!context.locals.user) {
-      return context.redirect("/auth/signin");
-    }
-  }
-
-  return next();
+  const response = await next();
+  const isProtected = PROTECTED_ROUTES.some((route) => matchesRouteSegment(context.url.pathname, route));
+  const isAuthRoute = AUTH_ROUTE_PREFIXES.some((route) => matchesRouteSegment(context.url.pathname, route));
+  const isForbiddenPage = classifyRoute(context.url.pathname) === "forbidden-page";
+  return isProtected || isAuthRoute || isForbiddenPage ? noStore(response) : response;
 });

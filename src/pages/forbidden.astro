@@ -1,0 +1,49 @@
+---
+import Layout from "@/layouts/Layout.astro";
+
+const { panelAccess } = Astro.locals;
+
+if (panelAccess.kind === "granted") {
+  return Astro.redirect("/dashboard");
+}
+
+const unavailable = panelAccess.kind === "unavailable";
+Astro.response.status = unavailable ? 503 : 403;
+---
+
+<Layout title={unavailable ? "Dostęp chwilowo niedostępny" : "Brak dostępu do workBot"}>
+  <main class="bg-cosmic flex min-h-screen items-center justify-center p-4">
+    <section
+      class="w-full max-w-lg rounded-2xl border border-amber-300/20 bg-white/10 p-8 text-center text-white backdrop-blur-xl"
+    >
+      <p class="mb-2 text-sm font-semibold tracking-wide text-amber-200 uppercase">
+        {unavailable ? "Chwilowa niedostępność" : "Brak dostępu"}
+      </p>
+      <h1 class="mb-4 text-3xl font-bold">
+        {unavailable ? "Nie można teraz zweryfikować dostępu" : "Konto nie ma aktywnego dostępu do panelu"}
+      </h1>
+      {
+        unavailable ? (
+          <p class="text-sm leading-6 text-blue-100/75">
+            Źródło uprawnień jest chwilowo niedostępne. Spróbuj ponownie później; żadne dane panelu nie zostały
+            ujawnione.
+          </p>
+        ) : (
+          <p class="text-sm leading-6 text-blue-100/75">
+            Uwierzytelnienie Google zakończyło się poprawnie, ale dostęp do workBot wymaga aktywnego konta panelowego.
+            Skontaktuj się z administratorem firmy, jeśli dostęp powinien zostać nadany.
+          </p>
+        )
+      }
+
+      <form method="POST" action="/api/auth/signout" class="mt-7">
+        <button
+          type="submit"
+          class="rounded-lg border border-white/20 bg-white/10 px-5 py-3 font-medium transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:outline-none"
+        >
+          Wyloguj się
+        </button>
+      </form>
+    </section>
+  </main>
+</Layout>
