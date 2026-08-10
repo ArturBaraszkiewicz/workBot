@@ -1,5 +1,11 @@
 import { defineMiddleware } from "astro:middleware";
-import { PANEL_API_PREFIXES, PANEL_PAGE_PREFIXES, classifyRoute, matchesRouteSegment } from "@/lib/auth/route-access";
+import {
+  PANEL_API_PREFIXES,
+  PANEL_PAGE_PREFIXES,
+  bypassesPanelSession,
+  classifyRoute,
+  matchesRouteSegment,
+} from "@/lib/auth/route-access";
 import { resolvePanelAccessForRequest, type PanelAccess } from "@/lib/auth/panel-principal";
 import { routeAccessResponse } from "@/lib/auth/request-guard";
 import { createClient } from "@/lib/supabase";
@@ -20,8 +26,15 @@ function noStore(response: Response): Response {
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const supabase = createClient(context.request.headers, context.cookies);
   let panelAccess: PanelAccess = { kind: "anonymous" };
+
+  if (bypassesPanelSession(context.url.pathname)) {
+    context.locals.user = null;
+    context.locals.panelAccess = panelAccess;
+    return next();
+  }
+
+  const supabase = createClient(context.request.headers, context.cookies);
 
   if (!supabase) {
     context.locals.user = null;

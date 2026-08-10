@@ -2,8 +2,9 @@ export const PANEL_PAGE_PREFIXES = ["/dashboard"] as const;
 export const PANEL_API_PREFIXES = ["/api/panel"] as const;
 export const FORBIDDEN_PAGE_PATH = "/forbidden";
 export const SIGN_IN_PATH = "/auth/signin";
+export const GOOGLE_CHAT_CALLBACK_PATH = "/api/bot/google-chat";
 
-export type RouteAccessKind = "public" | "panel-page" | "panel-api" | "forbidden-page";
+export type RouteAccessKind = "public" | "panel-page" | "panel-api" | "forbidden-page" | "external-callback";
 export type PanelAccessState = "anonymous" | "denied" | "granted" | "unavailable";
 
 export type RouteAccessDecision =
@@ -21,6 +22,10 @@ export function matchesRouteSegment(pathname: string, prefix: string): boolean {
 }
 
 export function classifyRoute(pathname: string): RouteAccessKind {
+  if (pathname === GOOGLE_CHAT_CALLBACK_PATH) {
+    return "external-callback";
+  }
+
   if (pathname === FORBIDDEN_PAGE_PATH) {
     return "forbidden-page";
   }
@@ -36,8 +41,12 @@ export function classifyRoute(pathname: string): RouteAccessKind {
   return "public";
 }
 
+export function bypassesPanelSession(pathname: string): boolean {
+  return classifyRoute(pathname) === "external-callback";
+}
+
 export function decideRouteAccess(route: RouteAccessKind, accessState: PanelAccessState): RouteAccessDecision {
-  if (route === "public" || accessState === "granted") {
+  if (route === "public" || route === "external-callback" || accessState === "granted") {
     return { kind: "allow" };
   }
 

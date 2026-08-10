@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyRoute, decideRouteAccess, matchesRouteSegment } from "../../../src/lib/auth/route-access";
+import {
+  bypassesPanelSession,
+  classifyRoute,
+  decideRouteAccess,
+  matchesRouteSegment,
+} from "../../../src/lib/auth/route-access";
 
 describe("panel route access contract", () => {
   describe("segment matching", () => {
@@ -22,12 +27,25 @@ describe("panel route access contract", () => {
       ["/api/panel", "panel-api"],
       ["/api/panel/statistics", "panel-api"],
       ["/forbidden", "forbidden-page"],
+      ["/api/bot/google-chat", "external-callback"],
       ["/", "public"],
       ["/dashboard-preview", "public"],
       ["/api/panelled", "public"],
       ["/forbidden/details", "public"],
+      ["/api/bot/google-chat-extra", "public"],
+      ["/api/bot/google-chat/details", "public"],
     ] as const)("classifies %s as %s", (pathname, expected) => {
       expect(classifyRoute(pathname)).toBe(expected);
+    });
+  });
+
+  describe("external callback bypass", () => {
+    it("bypasses the panel session only for the exact Google Chat callback", () => {
+      expect(bypassesPanelSession("/api/bot/google-chat")).toBe(true);
+      expect(bypassesPanelSession("/api/bot/google-chat-extra")).toBe(false);
+      expect(bypassesPanelSession("/api/bot/google-chat/details")).toBe(false);
+      expect(bypassesPanelSession("/api/panel")).toBe(false);
+      expect(bypassesPanelSession("/dashboard")).toBe(false);
     });
   });
 
@@ -78,6 +96,8 @@ describe("panel route access contract", () => {
       expect(decideRouteAccess("panel-api", "granted")).toEqual({ kind: "allow" });
       expect(decideRouteAccess("public", "anonymous")).toEqual({ kind: "allow" });
       expect(decideRouteAccess("public", "unavailable")).toEqual({ kind: "allow" });
+      expect(decideRouteAccess("external-callback", "anonymous")).toEqual({ kind: "allow" });
+      expect(decideRouteAccess("external-callback", "unavailable")).toEqual({ kind: "allow" });
     });
 
     it("keeps the forbidden page available only to authenticated users", () => {

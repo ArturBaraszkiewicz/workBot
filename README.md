@@ -26,6 +26,7 @@ ustaw wyłącznie wartości używane przez aplikację:
 ```dotenv
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_KEY=sb_publishable_xxxxxxxxxxxxx
+GOOGLE_CHAT_AUDIENCE=http://localhost:4321/api/bot/google-chat
 ```
 
 `SUPABASE_KEY` musi być kluczem publishable/anon. Nie dodawaj `service_role` ani secret key do Workera — omijają RLS.
@@ -44,8 +45,15 @@ Przechowuj je w ignorowanym pliku `supabase/.env` lub w zmiennych bieżącej ses
 npm run dev
 ```
 
-`astro dev` odczytuje aplikacyjne sekrety z ignorowanego pliku `.env`. Po zmianie `SUPABASE_URL` lub `SUPABASE_KEY`
-całkowicie zrestartuj serwer deweloperski; `.env.production` nie jest automatycznie ładowany w trybie development.
+`astro dev` odczytuje aplikacyjne wartości z ignorowanego pliku `.env`. Po zmianie `SUPABASE_URL`, `SUPABASE_KEY` lub
+`GOOGLE_CHAT_AUDIENCE` całkowicie zrestartuj serwer deweloperski; `.env.production` nie jest automatycznie ładowany w
+trybie development. Audience Google Chat musi być dokładnym URL-em callbacka, łącznie ze schematem, hostem, portem i
+ścieżką. Brak wartości powoduje kontrolowane `503` — nie włącza trybu bez uwierzytelnienia.
+
+W produkcyjnym Workerze ustaw `GOOGLE_CHAT_AUDIENCE` jako server-only secret na dokładny adres
+`https://<production-host>/api/bot/google-chat`. Callback nie wymaga Google OAuth Client Secret ani prywatnego klucza;
+weryfikuje podpisany przez Google token OIDC przez publiczny JWKS. Szczegółowa konfiguracja znajduje się w
+[docs/google-chat-callback.md](docs/google-chat-callback.md).
 
 Domyślny lokalny callback aplikacji to `http://127.0.0.1:4321/api/auth/callback`. Google przekierowuje najpierw do
 Supabase (`https://<project-ref>.supabase.co/auth/v1/callback`), a Supabase kończy PKCE w callbacku aplikacji.
@@ -108,13 +116,14 @@ ręcznej naprawy w Supabase SQL Editor/Dashboard.
 
 ## Trasy uwierzytelniania
 
-| Trasa                | Zachowanie                                                 |
-| -------------------- | ---------------------------------------------------------- |
-| `/auth/signin`       | Jedyna akcja logowania: firmowe Google SSO                 |
-| `/api/auth/callback` | Wymiana jednorazowego kodu PKCE na sesję                   |
-| `/forbidden`         | 403 dla uwierzytelnionego użytkownika bez aktywnego grantu |
-| `/dashboard`         | Panel dostępny wyłącznie dla aktywnego `hr_admin` lub `pm` |
-| `/api/panel/**`      | JSON 401/403/503 zależnie od stanu dostępu                 |
+| Trasa                  | Zachowanie                                                 |
+| ---------------------- | ---------------------------------------------------------- |
+| `/auth/signin`         | Jedyna akcja logowania: firmowe Google SSO                 |
+| `/api/auth/callback`   | Wymiana jednorazowego kodu PKCE na sesję                   |
+| `/forbidden`           | 403 dla uwierzytelnionego użytkownika bez aktywnego grantu |
+| `/dashboard`           | Panel dostępny wyłącznie dla aktywnego `hr_admin` lub `pm` |
+| `/api/panel/**`        | JSON 401/403/503 zależnie od stanu dostępu                 |
+| `/api/bot/google-chat` | Callback Google Chat chroniony Google OIDC; bez Supabase   |
 
 Każda przyszła tabela domenowa musi mieć własne polityki RLS. Middleware i ukrywanie elementów UI nie zastępują ochrony
 danych w PostgreSQL.
