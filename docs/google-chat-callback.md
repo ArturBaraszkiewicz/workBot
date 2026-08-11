@@ -63,6 +63,25 @@ npx wrangler secret put GOOGLE_CHAT_AUDIENCE
 Wartość w Google Chat i Workerze musi być identyczna. Zmiana domeny, schematu, końcowego ukośnika lub ścieżki wymaga
 koordynowanej aktualizacji obu stron; rozbieżność daje `401`. Brak wartości daje `503` i nigdy nie wyłącza auth.
 
+### Jednorazowa konfiguracja automatycznego deployu
+
+1. Utwórz token Cloudflare ograniczony do konta produkcyjnego i uprawnienia **Workers Scripts: Edit**. Zapisz go jako
+   GitHub Actions secret `CLOUDFLARE_API_TOKEN`; identyfikator konta zapisz jako `CLOUDFLARE_ACCOUNT_ID`.
+2. Sprawdź przez `npx wrangler secret list`, że Worker ma `GOOGLE_CHAT_AUDIENCE` oraz dotychczasowe `SUPABASE_URL` i
+   `SUPABASE_KEY`. Workflow ich nie odczytuje, nie drukuje, nie przesyła ponownie ani nie rotuje.
+3. Ustaw `GOOGLE_CHAT_AUDIENCE`, endpoint Google Chat i jego **Authentication Audience** na ten sam dokładny HTTPS URL:
+   `https://<production-host>/api/bot/google-chat`.
+4. Zakończ konfigurację Access opisaną niżej przed pierwszym pushem do `main`.
+
+Job `deploy` działa wyłącznie dla pushu do `main` po sukcesie `ci`. Wykonuje `npm ci`, produkcyjny build Astro i
+`wrangler deploy` z `wrangler.jsonc`. Jest to deployment całego Workera `workbot`, więc obejmuje również panel,
+uwierzytelnianie i pozostałe API. Pull request nigdy nie wdraża. Przed deployem job summary zapisuje poprzedni deployment,
+wersję i gotowe polecenie rollbacku; po sukcesie dopisuje nową wersję oraz adres.
+
+Jeżeli zmienia się publiczny URL callbacka, najpierw skoordynuj nowy endpoint i audience w Google Chat oraz
+`GOOGLE_CHAT_AUDIENCE` w Workerze. Dopiero potem uruchom następny automatyczny deploy. Nieskoordynowana zmiana zamknie
+callback bezpiecznym `401` albo `503`, ale bot przestanie odpowiadać.
+
 ## Cloudflare Access
 
 Google Chat nie wykonuje interaktywnego logowania Access. Jeżeli Access chroni host Workera:
@@ -128,10 +147,50 @@ Przykładowe żądania muszą zawierać wyłącznie dane syntetyczne.
 - `MESSAGE` zwraca tekst, `REMOVED_FROM_SPACE` nie zwraca wiadomości.
 - Log zawiera wyłącznie zatwierdzoną allowlistę i jeden rekord na request.
 
+## Produkcyjny smoke i rollback
+
+Po zakończeniu joba `deploy` otwórz jego summary i zachowaj poprzedni identyfikator wersji oraz pokazane polecenie
+rollbacku. Następnie wykonaj smoke ograniczonym kontem testowym:
+
+1. Uruchom `npx wrangler tail workbot --format json` i nie kopiuj pełnych rekordów do publicznych zgłoszeń.
+2. Dodaj aplikację do testowej przestrzeni. `ADDED_TO_SPACE` ma zwrócić widoczny statyczny tekst.
+3. Wyślij syntetyczną wiadomość. `MESSAGE` ma zwrócić widoczny statyczny tekst w czasie poniżej pięciu sekund.
+4. Usuń aplikację z przestrzeni. `REMOVED_FROM_SPACE` ma zakończyć się bez wiadomości zwrotnej.
+5. Dla każdego requestu sprawdź dokładnie jeden rekord zawierający wyłącznie `requestId`, opcjonalny `eventType` po
+   poprawnej walidacji body, `outcome`, `status` i `durationMs`. Rekord nie może zawierać tokena, nagłówków, body, treści
+   wiadomości, PII ani surowego wyjątku.
+6. Potwierdź, że dokładny callback pozostaje publicznym wyjątkiem Access, natomiast `/dashboard`, `/api/panel/...` i
+   podobne ścieżki nadal wymagają Access.
+
+Bezpieczne negatywne próby produkcyjne nie wymagają pozyskiwania tokena Google Chat:
+
+```powershell
+$callback = "https://<production-host>/api/bot/google-chat"
+Invoke-WebRequest -Method Post -Uri $callback -ContentType "application/json" -Body '{"type":"MESSAGE"}' -SkipHttpErrorCheck
+Invoke-WebRequest -Method Post -Uri $callback -Headers @{ Authorization = "Bearer invalid" } -ContentType "application/json" -Body '{"type":"MESSAGE"}' -SkipHttpErrorCheck
+```
+
+Oba requesty mają zwrócić `401` bez szczegółów w odpowiedzi. Ponieważ callback celowo sprawdza OIDC przed content type i
+body, ręczne produkcyjne `415` oraz `413` wymagałyby przechwycenia poprawnego tokena Google Chat. Nie przechwytuj tokena,
+nie zapisuj go i nie dodawaj bypassu auth. Te dwa statusy potwierdzają testy automatyczne uruchamiane przez `ci` na tym
+samym kodzie przed deploymentem.
+
+Jeżeli cały smoke przechodzi, nie wykonuj rollbacku. Zachowaj w notatce operacyjnej poprzedni identyfikator oraz dokładne
+polecenie z job summary, którego podstawowa postać to:
+
+```powershell
+npx wrangler rollback <VERSION_ID>
+```
+
+Jeżeli smoke ujawnia regresję całego Workera, użyj zapisanego identyfikatora poprzedniej wersji. Rollback jest działaniem
+awaryjnym, nie elementem poprawnego smoke testu.
+
 ## Oficjalne źródła
 
 - [Google Chat: verify requests](https://developers.google.com/workspace/chat/verify-requests-from-chat)
 - [Google Chat: receive and respond to interactions](https://developers.google.com/workspace/chat/receive-respond-interactions)
 - [Cloudflare Access: application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/)
 - [Cloudflare Access: bypass a public endpoint](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/common-policies/#bypass-a-public-endpoint)
+- [Cloudflare Workers: versions and deployments](https://developers.cloudflare.com/workers/versions-and-deployments/)
+- [Cloudflare Workers: rollbacks](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/)
 - [`jose`: JWT verification](https://github.com/panva/jose/blob/main/docs/jwt/verify/functions/jwtVerify.md)

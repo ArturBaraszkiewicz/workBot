@@ -399,37 +399,37 @@ Powyższe punkty są przyjętymi ograniczeniami planu, a nie nierozstrzygniętym
 
 #### Automated
 
-- [x] 1.1 Testy handlera pokrywają metody, auth, typ treści, limit 256 KiB, JSON, zdarzenia i mapowanie błędów
-- [x] 1.2 Poprawna odpowiedź przechodzi walidator tekstowy, a REMOVED_FROM_SPACE zwraca 204
-- [x] 1.3 Logger emituje jeden zredagowany wpis, a auth poprzedza parsowanie body
-- [x] 1.4 Testy, lint i produkcyjny build przechodzą po fazie
+- [x] 1.1 Testy handlera pokrywają metody, auth, typ treści, limit 256 KiB, JSON, zdarzenia i mapowanie błędów — 10e9ff0
+- [x] 1.2 Poprawna odpowiedź przechodzi walidator tekstowy, a REMOVED_FROM_SPACE zwraca 204 — 10e9ff0
+- [x] 1.3 Logger emituje jeden zredagowany wpis, a auth poprzedza parsowanie body — 10e9ff0
+- [x] 1.4 Testy, lint i produkcyjny build przechodzą po fazie — 10e9ff0
 
 #### Manual
 
-- [x] 1.5 Kontrakt pozostaje w zakresie F-03 bez komend i danych S-04+
-- [x] 1.6 Odpowiedzi błędów i logi nie ujawniają tokenów, payloadu, PII ani wyjątków
+- [x] 1.5 Kontrakt pozostaje w zakresie F-03 bez komend i danych S-04+ — 10e9ff0
+- [x] 1.6 Odpowiedzi błędów i logi nie ujawniają tokenów, payloadu, PII ani wyjątków — 10e9ff0
 
 ### Phase 2: Integracja Astro i Google OIDC
 
 #### Automated
 
-- [x] 2.1 Verifier sprawdza pełny kontrakt Google i rozróżnia niepoprawny auth od niedostępności
-- [x] 2.2 Tylko dokładny callback omija Supabase bez regresji guardów panelu
-- [x] 2.3 Endpoint POST i ALL zachowuje no-store oraz bezpieczne mapowanie runtime
-- [x] 2.4 Testy, lint i produkcyjny build przechodzą w runtime Cloudflare
+- [x] 2.1 Verifier sprawdza pełny kontrakt Google i rozróżnia niepoprawny auth od niedostępności — 10e9ff0
+- [x] 2.2 Tylko dokładny callback omija Supabase bez regresji guardów panelu — 10e9ff0
+- [x] 2.3 Endpoint POST i ALL zachowuje no-store oraz bezpieczne mapowanie runtime — 10e9ff0
+- [x] 2.4 Testy, lint i produkcyjny build przechodzą w runtime Cloudflare — 10e9ff0
 
 #### Manual
 
-- [x] 2.5 Lokalny workerd zwraca kontrolowane 401, 405, 413, 415 i 503 bez bypassu auth
-- [x] 2.6 Dokumentacja nie ujawnia sekretów i rozwiązuje konflikt callbacka z Cloudflare Access
+- [x] 2.5 Lokalny workerd zwraca kontrolowane 401, 405, 413, 415 i 503 bez bypassu auth — 10e9ff0
+- [x] 2.6 Dokumentacja nie ujawnia sekretów i rozwiązuje konflikt callbacka z Cloudflare Access — 10e9ff0
 
 ### Phase 3: Automatyczny deploy i produkcyjny smoke
 
 #### Automated
 
-- [ ] 3.1 Pull request nie wdraża, a push do main wdraża wyłącznie po sukcesie CI
-- [ ] 3.2 Job nie ujawnia sekretów i zapisuje poprzednią oraz nową wersję Workera
-- [ ] 3.3 Testy, lint i produkcyjny build przechodzą przed automatycznym deployem
+- [x] 3.1 Pull request nie wdraża, a push do main wdraża wyłącznie po sukcesie CI
+- [x] 3.2 Job nie ujawnia sekretów i zapisuje poprzednią oraz nową wersję Workera
+- [x] 3.3 Testy, lint i produkcyjny build przechodzą przed automatycznym deployem
 
 #### Manual
 

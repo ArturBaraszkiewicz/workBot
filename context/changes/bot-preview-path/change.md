@@ -3,7 +3,7 @@ change_id: bot-preview-path
 title: Bot preview path
 status: implementing
 created: 2026-08-09
-updated: 2026-08-09
+updated: 2026-08-10
 archived_at: null
 ---
 

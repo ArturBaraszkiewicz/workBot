@@ -55,6 +55,25 @@ W produkcyjnym Workerze ustaw `GOOGLE_CHAT_AUDIENCE` jako server-only secret na 
 weryfikuje podpisany przez Google token OIDC przez publiczny JWKS. Szczegółowa konfiguracja znajduje się w
 [docs/google-chat-callback.md](docs/google-chat-callback.md).
 
+## Automatyczny deploy na Cloudflare
+
+Push do `main` wdraża produkcyjnego Workera dopiero po przejściu całego joba `ci`. Pull requesty uruchamiają weryfikację,
+ale nigdy nie uruchamiają joba `deploy`. Przed pierwszym automatycznym wdrożeniem:
+
+1. Utwórz ograniczony do właściwego konta token Cloudflare z uprawnieniem **Workers Scripts: Edit**. Dodaj w GitHub
+   Actions dwa sekrety repozytorium: `CLOUDFLARE_API_TOKEN` i `CLOUDFLARE_ACCOUNT_ID`.
+2. Upewnij się, że Worker ma dotychczasowe runtime secrets `SUPABASE_URL` i `SUPABASE_KEY`; nie rotuj ich na potrzeby
+   tego workflow.
+3. Ustaw runtime secret `GOOGLE_CHAT_AUDIENCE` na dokładny adres
+   `https://<production-host>/api/bot/google-chat`.
+4. Przed kolejnym pushem ustaw w Google Chat ten sam dokładny endpoint i **Authentication Audience**. Zmianę hosta,
+   schematu, ścieżki albo końcowego ukośnika skoordynuj po obu stronach.
+
+Job wykonuje czystą instalację, jawny build produkcyjny i `wrangler deploy`. Wdraża cały Worker `workbot`, w tym panel i
+pozostałe API — nie tylko callback bota. Nie pobiera wartości runtime secrets do GitHub Actions. Job summary zapisuje
+poprzednią wersję i polecenie rollbacku, a po sukcesie nową wersję oraz adres wdrożenia. Procedura produkcyjnego smoke
+testu znajduje się w [docs/google-chat-callback.md](docs/google-chat-callback.md#produkcyjny-smoke-i-rollback).
+
 Domyślny lokalny callback aplikacji to `http://127.0.0.1:4321/api/auth/callback`. Google przekierowuje najpierw do
 Supabase (`https://<project-ref>.supabase.co/auth/v1/callback`), a Supabase kończy PKCE w callbacku aplikacji.
 

@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -35,3 +38,84 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: npx supabase stop --no-backup
+
+  deploy:
+    name: Deploy production Worker
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate deployment credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - name: Record rollback target
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status_file="$RUNNER_TEMP/cloudflare-before.json"
+          npx wrangler deployments status --config wrangler.jsonc --name workbot --json > "$status_file"
+
+          previous_deployment_id="$(node -e 'const d=require(process.argv[1]); process.stdout.write(d.id ?? "")' "$status_file")"
+          previous_version_id="$(node -e 'const d=require(process.argv[1]); const v=[...(d.versions ?? [])].sort((a,b)=>(b.percentage ?? 0)-(a.percentage ?? 0))[0]; process.stdout.write(v?.version_id ?? "")' "$status_file")"
+
+          test -n "$previous_deployment_id"
+          test -n "$previous_version_id"
+
+          {
+            echo "## Cloudflare deployment"
+            echo
+            echo "- Previous deployment: \`$previous_deployment_id\`"
+            echo "- Previous version: \`$previous_version_id\`"
+            echo "- Rollback: \`npx wrangler rollback $previous_version_id --name workbot --config wrangler.jsonc\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Build production Worker
+        run: npm run build -- --mode production
+      - name: Deploy production Worker
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          deploy_log="$RUNNER_TEMP/cloudflare-deploy.log"
+          npx wrangler deploy --config wrangler.jsonc --name workbot --message "GitHub ${GITHUB_SHA}" 2>&1 | tee "$deploy_log"
+
+          deploy_url="$(grep -Eo 'https://[^[:space:]]+' "$deploy_log" | tail -n 1 | sed 's/[),.;]*$//' || true)"
+          test -n "$deploy_url"
+          echo "url=$deploy_url" >> "$GITHUB_OUTPUT"
+      - name: Record deployed version
+        shell: bash
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          status_file="$RUNNER_TEMP/cloudflare-after.json"
+          npx wrangler deployments status --config wrangler.jsonc --name workbot --json > "$status_file"
+
+          deployment_id="$(node -e 'const d=require(process.argv[1]); process.stdout.write(d.id ?? "")' "$status_file")"
+          version_id="$(node -e 'const d=require(process.argv[1]); const v=[...(d.versions ?? [])].sort((a,b)=>(b.percentage ?? 0)-(a.percentage ?? 0))[0]; process.stdout.write(v?.version_id ?? "")' "$status_file")"
+
+          test -n "$deployment_id"
+          test -n "$version_id"
+          test -n "$DEPLOY_URL"
+
+          {
+            echo "- New deployment: \`$deployment_id\`"
+            echo "- New version: \`$version_id\`"
+            echo "- Address: $DEPLOY_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
